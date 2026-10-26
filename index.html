@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fon · Apple duvar kağıdı stüdyosu</title>
+<meta name="description" content="iPhone, iPad, Mac ve Apple Watch için yüzlerce arkaplan, birleştirilebilir efektler ve kendi logon. Cihazını seç, tam çözünürlükte indir.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="mark" aria-hidden="true"></span><b>Fon</b><span class="sub">Duvar kağıdı stüdyosu</span></div>
+  <nav class="seg" id="catSeg" aria-label="Cihaz ailesi"></nav>
+  <div class="model">
+    <select id="modelSel" class="sel" aria-label="Model"></select>
+    <span id="resLbl" class="res"></span>
+  </div>
+  <div class="actions">
+    <button id="btnRandom" class="btn ghost" title="Rastgele tasarım (R)">Rastgele</button>
+    <button id="btnDownload" class="btn primary">İndir</button>
+  </div>
+</header>
+
+<main class="app">
+  <aside class="panel left">
+    <section class="sec" id="bgSec"></section>
+    <section class="sec" id="elSec"></section>
+    <section class="sec" id="fxSec"></section>
+    <section class="sec" id="outSec"></section>
+  </aside>
+
+  <section class="stage" id="stage">
+    <div class="dev" id="dev">
+      <div class="bezel" id="bezel">
+        <div class="screen" id="screen">
+          <canvas id="preview"></canvas>
+          <div class="chrome" id="chrome"></div>
+        </div>
+      </div>
+      <div class="base" aria-hidden="true"></div>
+      <div class="stand" aria-hidden="true"></div>
+    </div>
+    <div class="stagebar">
+      <span id="devInfo" class="dev-info"></span>
+      <div class="sb-actions">
+        <button class="chip-btn" id="btnLock" aria-pressed="true">Kilit ekranı</button>
+        <button class="chip-btn" id="btnFav">♡ Favori</button>
+        <button class="chip-btn" id="btnLink">Bağlantı</button>
+      </div>
+    </div>
+  </section>
+
+  <aside class="panel right">
+    <div class="lib-head">
+      <div class="seg lib-tabs" id="libTabs">
+        <button data-tab="bg">Arkaplanlar</button>
+        <button data-tab="combo">Kombinler</button>
+        <button data-tab="fav">Favoriler</button>
+      </div>
+      <div class="chips" id="genChips"></div>
+      <div class="chips pals" id="palChips"></div>
+      <div class="lib-count" id="libCount"></div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </aside>
+</main>
+
+<input type="file" id="fileIn" accept="image/*" hidden>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="js/data.js"></script>
+<script src="js/gen.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
