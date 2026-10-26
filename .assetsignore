@@ -3,3 +3,5 @@
 .nojekyll
 wrangler.jsonc
 .assetsignore
+mac
+.DS_Store

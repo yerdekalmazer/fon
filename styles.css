@@ -229,3 +229,5 @@ input[type=range]:disabled { opacity: .4; }
   .left { order: 3; border: 0; border-top: 1px solid var(--line); overflow: visible; }
   .panel { overflow: visible; }
 }
+
+@media (max-width: 960px) { #btnMacApp { display: none; } }

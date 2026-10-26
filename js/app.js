@@ -15,21 +15,31 @@
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
   };
 
-  const CATS = ['iphone', 'ipad', 'mac', 'watch', 'tv', 'custom'];
-  const CAT_LABEL = { iphone: 'iPhone', ipad: 'iPad', mac: 'Mac', watch: 'Watch', tv: 'TV', custom: 'Özel' };
+  const NATIVE = !!(window.FonNative && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.fon);
+  const CATS = (NATIVE ? ['thismac'] : []).concat(['iphone', 'ipad', 'mac', 'watch', 'tv', 'custom']);
+  const CAT_LABEL = { thismac: 'Bu Mac', iphone: 'iPhone', ipad: 'iPad', mac: 'Mac', watch: 'Watch', tv: 'TV', custom: 'Özel' };
   const DEF_MODEL = { iphone: 'ip17pm', ipad: 'ipp13', mac: 'mbp14', watch: 'wu3', tv: 'tv4k' };
+  function setThisMac(screens) {
+    F.devices.thismac = { label: 'Bu Mac', kind: 'laptop', models: screens.map(sc => ({
+      id: 'scr' + sc.index, screen: sc.index, w: sc.w, h: sc.h, notch: sc.notch, desk: !sc.builtin,
+      name: `${sc.name}${screens.length > 1 && sc.main ? ' (ana ekran)' : ''}`,
+    })) };
+    DEF_MODEL.thismac = 'scr' + ((screens.find(sc => sc.main) || screens[0] || { index: 0 }).index);
+  }
+  if (NATIVE) setThisMac(window.FonNative.screens || []);
   const APPLE = '';
 
   // ---------- durum
   const saved = store.get('fon:state', {});
   const state = {
-    cat: 'iphone', modelBy: { ...DEF_MODEL }, custom: { w: 1920, h: 1080 },
+    cat: NATIVE ? 'thismac' : 'iphone', modelBy: { ...DEF_MODEL }, custom: { w: 1920, h: 1080 },
     bg: { gen: 'fluid', pal: 13, seed: 4821 }, fx: [{ id: 'grain', amount: 0.3 }], els: [],
     lock: true, square: true, fmt: 'png', tab: 'bg', fGen: 'all', fPal: -1,
   };
   for (const k of Object.keys(state)) if (saved[k] !== undefined) state[k] = saved[k];
   state.modelBy = { ...DEF_MODEL, ...(saved.modelBy || {}) };
-  if (!CATS.includes(state.cat)) state.cat = 'iphone';
+  if (!CATS.includes(state.cat)) state.cat = CATS[0];
+  if (NATIVE && !F.devices.thismac.models.some(m => m.id === state.modelBy.thismac)) state.modelBy.thismac = DEF_MODEL.thismac;
   state.sel = null;
 
   // paylaşılan bağlantı
@@ -307,6 +317,10 @@
       <div class="row"><span class="grow">Biçim</span><div class="seg" id="fmtSeg"><button data-fmt="png" class="${state.fmt === 'png' ? 'on' : ''}">PNG</button><button data-fmt="jpg" class="${state.fmt === 'jpg' ? 'on' : ''}">JPEG</button></div></div>
       <button class="btn primary block" id="btnDl2">${esc(dev.name)} için indir</button>
       <button class="btn ghost block" id="btnSet">Ekosistem seti (iPhone, iPad, Mac, Watch)</button>
+      ${NATIVE ? `<div class="sec-h" style="margin-top:18px"><h3>iPhone'a gönder <small>${esc(devOf('iphone').name)}</small></h3></div>
+      <button class="btn ghost block" data-phone="airdrop">AirDrop ile gönder</button>
+      <button class="btn ghost block" data-phone="icloud">iCloud Drive'a kaydet</button>
+      <p class="hint">AirDrop: telefonda görseli aç, Paylaş → Duvar Kağıdı Olarak Kullan.<br>iCloud: her seferinde <b>iCloud Drive/Fon/Fon-iPhone.png</b> güncellenir. iPhone'da bir kez Kestirmeler'de “Dosya Al” (bu dosya) + “Duvar Kağıdını Ayarla” kestirmesi kurarsan sonrası tek dokunuş.</p>` : ''}
       <p class="hint">Set, her ailede en son seçtiğin modeli kullanır: ${esc(devOf('iphone').name)}, ${esc(devOf('ipad').name)}, ${esc(devOf('mac').name)}, ${esc(devOf('watch').name)}.</p>`;
   }
   $('#outSec').addEventListener('change', e => {
@@ -320,6 +334,7 @@
     const fb = e.target.closest('[data-fmt]'); if (fb) { state.fmt = fb.dataset.fmt; buildOutSec(); saveSoon(); }
     if (e.target.closest('#btnDl2')) exportCurrent();
     if (e.target.closest('#btnSet')) exportSet();
+    const ph = e.target.closest('[data-phone]'); if (ph) sendToPhone(ph.dataset.phone);
   });
 
   // ---------- sahne ve cihaz çerçevesi
@@ -539,21 +554,27 @@
 
   // ---------- dışa aktarma
   const slug = s => s.toLowerCase().replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  function renderBlob(dev) {
+  function renderBlob(dev, fmt = state.fmt) {
     return new Promise((res, rej) => {
       const o = outSize(dev), cv = document.createElement('canvas'); cv.width = o.w; cv.height = o.h;
       const ctx = cv.getContext('2d'); if (!ctx) return rej(new Error('canvas'));
       const frame = { x: (o.w - dev.w) / 2, y: (o.h - dev.h) / 2, w: dev.w, h: dev.h };
       F.render(ctx, o.w, o.h, { bg: state.bg, fx: state.fx, els: state.els }, { els: true, frame });
-      const type = state.fmt === 'jpg' ? 'image/jpeg' : 'image/png';
-      cv.toBlob(b => b ? res({ blob: b, name: `fon-${slug(dev.name)}-${o.w}x${o.h}.${state.fmt === 'jpg' ? 'jpg' : 'png'}` }) : rej(new Error('Bu boyutta görüntü oluşturulamadı')), type, 0.95);
+      const type = fmt === 'jpg' ? 'image/jpeg' : 'image/png';
+      cv.toBlob(b => b ? res({ blob: b, name: `fon-${slug(dev.name)}-${o.w}x${o.h}.${fmt === 'jpg' ? 'jpg' : 'png'}` }) : rej(new Error('Bu boyutta görüntü oluşturulamadı')), type, 0.95);
     });
   }
   function download({ blob, name }) {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
+  const toDataURL = blob => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+  const native = msg => window.webkit.messageHandlers.fon.postMessage(msg);
   async function deliver(results) {
+    if (NATIVE) {
+      const files = []; for (const r of results) files.push({ name: r.name, data: await toDataURL(r.blob) });
+      native({ type: 'save', files }); return false;
+    }
     if (isTouch && navigator.canShare) {
       const files = results.map(r => new File([r.blob], r.name, { type: r.blob.type }));
       if (navigator.canShare({ files })) {
@@ -561,6 +582,7 @@
       }
     }
     for (let i = 0; i < results.length; i++) { download(results[i]); if (i < results.length - 1) await new Promise(r => setTimeout(r, 400)); }
+    return true;
   }
   let busy = false;
   async function run(devs) {
@@ -571,11 +593,51 @@
     try {
       const results = [];
       for (const d of devs) results.push(await renderBlob(d));
-      await deliver(results);
       const o = outSize(devs[0]);
-      toast(devs.length > 1 ? `${devs.length} dosya indirildi` : `İndirildi · ${o.w} × ${o.h} px`);
+      if (!(await deliver(results))) toast('Kaydetme penceresi açıldı');
+      else toast(devs.length > 1 ? `${devs.length} dosya indirildi` : `İndirildi · ${o.w} × ${o.h} px`);
     } catch (e) { toast(`Olmadı: ${e.message}`); }
     busy = false; $$('#btnDownload, #btnDl2, #btnSet').forEach(b => b.disabled = false);
+  }
+
+  // Mac'e uygula: tasarım her ekranın kendi çözünürlüğünde çizilip masaüstü arkaplanı yapılır
+  async function applyToMac() {
+    if (busy || !NATIVE) return; busy = true;
+    const btn = $('#btnApply'); btn.disabled = true;
+    const screens = F.devices.thismac.models;
+    toast(screens.length > 1 ? `${screens.length} ekran için hazırlanıyor…` : 'Hazırlanıyor…', 60000);
+    await new Promise(r => setTimeout(r, 40));
+    try {
+      const images = [];
+      for (const m of screens) {
+        const r = await renderBlob({ ...m, kind: 'laptop' }, 'png');
+        images.push({ screen: m.screen, data: await toDataURL(r.blob) });
+      }
+      native({ type: 'apply', images });
+    } catch (e) { toast(`Olmadı: ${e.message}`); busy = false; btn.disabled = false; }
+  }
+  // iPhone'a gönder: son seçilen iPhone modelinin çözünürlüğünde üretip AirDrop'a ya da iCloud Drive'a verir
+  async function sendToPhone(mode) {
+    if (busy || !NATIVE) return; busy = true;
+    const dev = devOf('iphone');
+    toast(`${dev.name} için hazırlanıyor…`, 60000);
+    await new Promise(r => setTimeout(r, 40));
+    try {
+      const r = await renderBlob(dev, 'png');
+      native({ type: 'phone', mode, name: r.name, data: await toDataURL(r.blob) });
+    } catch (e) { toast(`Olmadı: ${e.message}`); busy = false; }
+  }
+  function onNative(r) {
+    busy = false; const btn = $('#btnApply'); if (btn) btn.disabled = false;
+    toast(r.message, r.ok ? 2600 : 5000);
+  }
+  if (NATIVE) {
+    const b = document.createElement('button'); b.id = 'btnApply'; b.className = 'btn primary'; b.textContent = "Mac'e uygula";
+    b.title = 'Tasarımı tüm ekranlarda masaüstü arkaplanı yap';
+    $('.top .actions').appendChild(b); b.addEventListener('click', applyToMac);
+    $('#btnDownload').className = 'btn ghost'; $('#btnDownload').textContent = 'Kaydet';
+    $('#btnLink').hidden = true; $('#btnMacApp').hidden = true;
+    document.documentElement.classList.add('native');
   }
   const exportCurrent = () => run([curDev()]);
   const exportSet = () => run(['iphone', 'ipad', 'mac', 'watch'].map(devOf));
@@ -588,6 +650,7 @@
     buildBgSec(); buildFxSec(); schedule(); markActive(); saveSoon();
   }
   $('#btnRandom').addEventListener('click', randomize);
+  $('#btnMacApp').addEventListener('click', () => toast('İndiriliyor. macOS ilk açılışta uyarırsa: Sistem Ayarları → Gizlilik ve Güvenlik → Yine de Aç.', 9000));
   $('#btnLock').addEventListener('click', () => { state.lock = !state.lock; buildChrome(curDev()); saveSoon(); });
   $('#btnFav').addEventListener('click', () => {
     const f = favs(), g = F.genById[state.bg.gen];
@@ -619,5 +682,8 @@
   // ---------- başlat
   buildHeader(); buildBgSec(); buildElSec(); buildFxSec(); buildOutSec(); buildLibHead();
   refreshThumbAspect(); buildGrid(); layout(); clampAll();
-  window.FonApp = { state, renderBlob, curDev, outSize };
+  window.FonApp = {
+    state, renderBlob, curDev, outSize, onNative,
+    setScreens(list) { setThisMac(list); if (!F.devices.thismac.models.some(m => m.id === state.modelBy.thismac)) state.modelBy.thismac = DEF_MODEL.thismac; applyDevice(); },
+  };
 })();
